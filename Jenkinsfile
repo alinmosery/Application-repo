@@ -1,28 +1,16 @@
-pipeline {
-    agent any
-    environment {
-        AWS_CREDENTIALS_ID = 'aws-creds'
-        ECR_REGISTRY = '992382545251.dkr.ecr.us-east-1.amazonaws.com'
-        ECR_REPOSITORY = 'alin-calculator'
-    }
-    stages {
-        stage('Build & Push') {
-            steps {
-                script {
-                    def dockerImage = "${ECR_REGISTRY}/${ECR_REPOSITORY}:pr-${env.BUILD_NUMBER}"
-                    
-                    // פקודת בדיקה - לראות איפה הקובץ נמצא באמת
-                    sh "find . -name Dockerfile"
-                    
-                    echo "Starting Build..."
-                    // אם הקובץ בתיקייה הראשית - זה יעבוד. אם הוא ב-tests - שנה ל-tests/Dockerfile
-                    sh "docker build -t ${dockerImage} -f \$(find . -name Dockerfile | head -n 1) ."
-                    
-                    docker.withRegistry("https://${ECR_REGISTRY}", "ecr:us-east-1:${AWS_CREDENTIALS_ID}") {
-                        sh "docker push ${dockerImage}"
-                    }
-                }
-            }
-        }
+script {
+    // 1. התחברות ל-ECR (משתמש ב-Credentials של AWS שהגדרת בג'נקינס)
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+        
+        echo "Logging into Amazon ECR..."
+        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+        
+        // 2. בניית האימג' (חובה לתייג אותו עם כתובת ה-Registry)
+        echo "Building image..."
+        sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+        
+        // 3. דחיפה ל-ECR
+        echo "Pushing image..."
+        sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
     }
 }
