@@ -12,17 +12,19 @@ pipeline {
         stage('Build & Push') {
             steps {
                 script {
-                    // פקודה שמורידה ומתקינה את דוקר לתוך התיקייה של ג'נקינס
-                    def dockerBin = tool name: 'my-docker', type: 'docker'
+                    // הגדרת הכלי - ודאי שהשם כאן תואם למה שהגדרת ב-Tools
+                    def dockerTool = tool name: 'my-docker', type: 'docker'
                     
-                    // הוספת הנתיב של דוקר ל-PATH של הריצה הנוכחית
-                    withEnv(["PATH+DOCKER=${dockerBin}/bin"]) {
-                        echo "Building Image using installed Docker tool..."
+                    // הוספת הנתיב של הכלי לסביבת הריצה
+                    withEnv(["PATH+DOCKER=${dockerTool}/bin"]) {
+                        echo "Docker tool found at: ${dockerTool}"
                         sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
                         
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                            echo "Logging into ECR..."
+                            echo "Logging into Amazon ECR..."
                             sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                            
+                            echo "Pushing Image..."
                             sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                         }
                     }
