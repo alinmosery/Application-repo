@@ -12,18 +12,17 @@ pipeline {
         stage('Build & Push') {
             steps {
                 script {
-                    // וידוא שהפקודה קיימת ושג'נקינס יכול לגשת ל-Socket שפתחת
-                    sh "docker --version"
+                    echo "Starting Build Process..."
                     
-                    echo "Building Image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    // שימוש בנתיב המלא של דוקר בשרת המארח
+                    sh "/usr/bin/docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
                     
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                         echo "Logging into ECR..."
-                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                        sh "aws ecr get-login-password --region us-east-1 | /usr/bin/docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
                         echo "Pushing Image..."
-                        sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                        sh "/usr/bin/docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                     }
                 }
             }
