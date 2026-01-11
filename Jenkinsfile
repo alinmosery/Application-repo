@@ -12,17 +12,17 @@ pipeline {
         stage('Build & Push') {
             steps {
                 script {
-                    echo "Using Docker installed on host server..."
+                    echo "Accessing Host Docker..."
                     
-                    // פקודה ישירה לדוקר של השרת
-                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    // שימוש בנתיב המלא של דוקר בשרת
+                    sh "/usr/bin/docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
                     
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                         echo "Logging into ECR..."
-                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                        sh "aws ecr get-login-password --region us-east-1 | /usr/bin/docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
                         echo "Pushing Image..."
-                        sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                        sh "/usr/bin/docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                     }
                 }
             }
