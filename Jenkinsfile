@@ -12,21 +12,17 @@ pipeline {
         stage('Build & Push') {
             steps {
                 script {
-                    // הגדרת הכלי - ודאי שהשם כאן תואם למה שהגדרת ב-Tools
-                    def dockerTool = tool name: 'my-docker', type: 'docker'
+                    echo "Using Docker installed on host server..."
                     
-                    // הוספת הנתיב של הכלי לסביבת הריצה
-                    withEnv(["PATH+DOCKER=${dockerTool}/bin"]) {
-                        echo "Docker tool found at: ${dockerTool}"
-                        sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    // פקודה ישירה לדוקר של השרת
+                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                        echo "Logging into ECR..."
+                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                            echo "Logging into Amazon ECR..."
-                            sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-                            
-                            echo "Pushing Image..."
-                            sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-                        }
+                        echo "Pushing Image..."
+                        sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                     }
                 }
             }
