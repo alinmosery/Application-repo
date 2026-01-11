@@ -1,47 +1,33 @@
 pipeline {
-    agent any 
+    agent any
 
     environment {
-     
-        IMAGE_NAME = "calculator-app"
+        AWS_CREDENTIALS_ID = 'aws-creds'
+        ECR_REGISTRY = '992382545251.dkr.ecr.us-east-1.amazonaws.com'
+        ECR_REPOSITORY = 'alin-calculator'
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Build & Test (CI)') {
-            
-            agent {
-                docker {
-                   
-                    image 'python:3.9-slim' 
-                    args '-u'
-                }
-            }
-            steps {
-                sh '''
-                    echo "Installing requirements..."
-                    pip install -r requirements.txt
-                    
-                    echo "Running Unit Tests..."
-                    python3 -m unittest discover tests
-                '''
-            }
-        }
-        
-        stage('Push to ECR & Deploy (CD)') {
-         
+        stage('Build & Push') {
             when {
-                branch 'main' 
+                changeRequest() 
             }
             steps {
-                echo 'Deploying to Production...'
-           
-                sh 'echo "TODO: Add Docker Push and Deploy steps here"'
+                script {
+                    // הגדרת שם האימג' עם מספר ה-Build הנוכחי
+                    def dockerImage = "${ECR_REGISTRY}/${ECR_REPOSITORY}:pr-${env.BUILD_NUMBER}"
+                    
+                    echo "Building image: ${dockerImage}"
+                    
+                    // שימוש בבלוק docker.withRegistry כדי לטפל בלוגין ובבנייה
+                    docker.withRegistry("https://${ECR_REGISTRY}", "ecr:us-east-1:${AWS_CREDENTIALS_ID}") {
+                        // בנייה של האימג'
+                        def myApp = docker.build("${dockerImage}")
+                        
+                        // העלאה (Push) ל-ECR
+                        myApp.push()
+                    }
+                }
             }
         }
     }
