@@ -1,0 +1,48 @@
+pipeline {
+    agent any 
+
+    environment {
+     
+        IMAGE_NAME = "calculator-app"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build & Test (CI)') {
+            
+            agent {
+                docker {
+                   
+                    image 'python:3.9-slim' 
+                    args '-u'
+                }
+            }
+            steps {
+                sh '''
+                    echo "Installing requirements..."
+                    pip install -r requirements.txt
+                    
+                    echo "Running Unit Tests..."
+                    python3 -m unittest discover tests
+                '''
+            }
+        }
+        
+        stage('Push to ECR & Deploy (CD)') {
+         
+            when {
+                branch 'main' 
+            }
+            steps {
+                echo 'Deploying to Production...'
+           
+                sh 'echo "TODO: Add Docker Push and Deploy steps here"'
+            }
+        }
+    }
+}
