@@ -1,5 +1,11 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'gcr.io/kaniko-project/executor:debug'
+            // ביטול ה-Entrypoint כדי שנוכל להריץ פקודות shell
+            args '--entrypoint=""'
+        }
+    }
 
     environment {
         AWS_CREDENTIALS_ID = 'aws-creds'
@@ -9,21 +15,19 @@ pipeline {
     }
 
     stages {
-        stage('Build & Push') {
+        stage('Build & Push to ECR') {
             steps {
-                script {
-                    echo "Starting Build Process..."
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    sh """
+                    # יצירת קונפיגורציה של AWS עבור קניקו
+                    mkdir -p /kaniko/.aws
+                    echo -e "[default]\naws_access_key_id=${AWS_ACCESS_KEY_ID}\naws_secret_access_key=${AWS_SECRET_ACCESS_KEY}" > /kaniko/.aws/credentials
                     
-                    // שימוש בנתיב המלא של דוקר בשרת המארח
-                    sh "/usr/bin/docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
-                    
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                        echo "Logging into ECR..."
-                        sh "aws ecr get-login-password --region us-east-1 | /usr/bin/docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-                        
-                        echo "Pushing Image..."
-                        sh "/usr/bin/docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-                    }
+                    # הרצת הבנייה והדחיפה ל-ECR בבת אחת
+                    /kaniko/executor --dockerfile=Dockerfile \
+                      --context=\$(pwd) \
+                      --destination=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+                    """
                 }
             }
         }
