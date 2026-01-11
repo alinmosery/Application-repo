@@ -1,7 +1,6 @@
 pipeline {
-    agent any
+    agent any 
 
-    // החלק הזה קריטי - הוא מחבר את הגדרת ה-Tool שעשית בג'נקינס לקוד
     tools {
         dockerTool 'my-docker'
     }
@@ -16,10 +15,13 @@ pipeline {
     stages {
         stage('Build Image') {
             steps {
+                // שימוש בבלוק script כדי להבטיח שה-Tool נכנס ל-PATH
                 script {
-                    echo "Building Docker Image..."
-                    // שימוש בפקודת docker רגילה - ג'נקינס כבר ידע איפה היא בזכות ה-tools
-                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    def dockerHome = tool 'my-docker'
+                    withEnv(["PATH+DOCKER=${dockerHome}/bin"]) {
+                        echo "Building Docker Image..."
+                        sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    }
                 }
             }
         }
@@ -29,13 +31,16 @@ pipeline {
                 changeRequest()
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                    script {
-                        echo "Logging into Amazon ECR..."
-                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-                        
-                        echo "Pushing image to ECR..."
-                        sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                script {
+                    def dockerHome = tool 'my-docker'
+                    withEnv(["PATH+DOCKER=${dockerHome}/bin"]) {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                            echo "Logging into Amazon ECR..."
+                            sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                            
+                            echo "Pushing image to ECR..."
+                            sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                        }
                     }
                 }
             }
