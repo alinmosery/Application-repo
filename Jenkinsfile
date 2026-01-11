@@ -1,9 +1,5 @@
 pipeline {
-    agent any 
-
-    tools {
-        dockerTool 'my-docker'
-    }
+    agent any
 
     environment {
         AWS_CREDENTIALS_ID = 'aws-creds'
@@ -15,32 +11,23 @@ pipeline {
     stages {
         stage('Build Image') {
             steps {
-                // שימוש בבלוק script כדי להבטיח שה-Tool נכנס ל-PATH
                 script {
-                    def dockerHome = tool 'my-docker'
-                    withEnv(["PATH+DOCKER=${dockerHome}/bin"]) {
-                        echo "Building Docker Image..."
-                        sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
-                    }
+                    echo "Building Docker Image..."
+                    // ננסה להריץ בלי נתיב מפורש אבל עם פקודה שתבדוק איפה דוקר נמצא
+                    sh "docker --version || /usr/local/bin/docker --version || echo 'Docker not found in standard paths'"
+                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
                 }
             }
         }
 
         stage('Push to ECR') {
-            when {
-                changeRequest()
-            }
+            when { changeRequest() }
             steps {
-                script {
-                    def dockerHome = tool 'my-docker'
-                    withEnv(["PATH+DOCKER=${dockerHome}/bin"]) {
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                            echo "Logging into Amazon ECR..."
-                            sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-                            
-                            echo "Pushing image to ECR..."
-                            sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-                        }
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    script {
+                        echo "Logging into ECR..."
+                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                        sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                     }
                 }
             }
