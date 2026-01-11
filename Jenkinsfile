@@ -1,5 +1,12 @@
 pipeline {
-    agent any
+    // אנחנו משתמשים ב-Agent שיש לו כבר את הפקודה docker מובנית
+    agent {
+        docker { 
+            image 'docker:latest'
+            // שיתוף ה-Socket של השרת (זה שעשינו לו chmod 666)
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
         AWS_CREDENTIALS_ID = 'aws-creds'
@@ -10,7 +17,6 @@ pipeline {
 
     stages {
         stage('Build & Push') {
-            when { changeRequest() }
             steps {
                 script {
                     echo "Building Docker Image..."
