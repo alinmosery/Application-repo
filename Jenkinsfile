@@ -1,27 +1,23 @@
 pipeline {
     agent any
     environment {
-        AWS_CREDENTIALS_ID = 'aws-creds'
+        AWS_CREDENTIALS_ID = 'aws-creds' // המזהה שהגדרת ב-Credentials
         ECR_REGISTRY = '992382545251.dkr.ecr.us-east-1.amazonaws.com'
         ECR_REPOSITORY = 'alin-calculator'
-        IMAGE_TAG = "pr-${env.BUILD_NUMBER}"
+        IMAGE_TAG = "build-${env.BUILD_NUMBER}"
     }
     stages {
         stage('Build & Push to ECR') {
             steps {
                 script {
-                    // שימוש ב-Credentials של AWS כדי להתחבר
+                    echo "Building Image..."
+                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                        
-                        echo "Building Image..."
-                        // הפקודה מחפשת את ה-Dockerfile בשורש הפרויקט
-                        sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
-                        
                         echo "Logging into Amazon ECR..."
-                        // הפקודה שביקשת: שילוב של aws ecr login ו-docker login
                         sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
-                        echo "Pushing Image to ECR..."
+                        echo "Pushing Image..."
                         sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                     }
                 }
