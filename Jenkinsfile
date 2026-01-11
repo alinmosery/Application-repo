@@ -1,11 +1,5 @@
 pipeline {
-    // זה יגרום לג'נקינס להשתמש בקונטיינר שיש בו דוקר מובנה
-    agent {
-        docker { 
-            image 'docker:dind'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     environment {
         AWS_CREDENTIALS_ID = 'aws-creds'
@@ -15,20 +9,14 @@ pipeline {
     }
 
     stages {
-        stage('Build Image') {
+        stage('Build & Push') {
+            when { changeRequest() }
             steps {
                 script {
                     echo "Building Docker Image..."
                     sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
-                }
-            }
-        }
-
-        stage('Push to ECR') {
-            when { changeRequest() }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                    script {
+                    
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                         echo "Logging into Amazon ECR..."
                         sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
