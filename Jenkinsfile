@@ -6,28 +6,25 @@ pipeline {
         ECR_REGISTRY = '992382545251.dkr.ecr.us-east-1.amazonaws.com'
         ECR_REPOSITORY = 'alin-calculator'
         IMAGE_TAG = "pr-${env.BUILD_NUMBER}"
-        REGION = "us-east-1"
     }
 
     stages {
-        stage('Build & Push to ECR') {
-            when { changeRequest() }
+        stage('Build & Push') {
             steps {
-                // שימוש ב-Plugin המובנה של AWS ECR שחוסך פקודות Docker CLI
                 script {
-                    echo "Building and Publishing Image to ECR..."
-                    // הפקודה הזו משתמשת ב-Plugin פנימי ולא ב-sh 'docker build'
-                    ecrPayload = [
-                        repositoryName: "${ECR_REPOSITORY}",
-                        region: "${REGION}",
-                        credentialsId: "${AWS_CREDENTIALS_ID}",
-                        imageTag: "${IMAGE_TAG}"
-                    ]
-                    // אם הפלאגין מותקן, זה יעבוד. אם לא, נשתמש בשיטת ה-Raw
-                    step([$class: 'ECRPublisher', 
-                          region: "${REGION}", 
-                          credentialsId: "${AWS_CREDENTIALS_ID}", 
-                          imageName: "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"])
+                    // וידוא שהפקודה קיימת ושג'נקינס יכול לגשת ל-Socket שפתחת
+                    sh "docker --version"
+                    
+                    echo "Building Image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                        echo "Logging into ECR..."
+                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                        
+                        echo "Pushing Image..."
+                        sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    }
                 }
             }
         }
