@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    // החלק הזה קריטי - הוא מחבר את הגדרת ה-Tool שעשית בג'נקינס לקוד
+    tools {
+        dockerTool 'my-docker'
+    }
+
     environment {
         AWS_CREDENTIALS_ID = 'aws-creds'
         ECR_REGISTRY = '992382545251.dkr.ecr.us-east-1.amazonaws.com'
@@ -13,8 +18,8 @@ pipeline {
             steps {
                 script {
                     echo "Building Docker Image..."
-                    // שימוש ב-usr/bin/docker מבטיח שג'נקינס ימצא את הפקודה
-                    sh "/usr/bin/docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    // שימוש בפקודת docker רגילה - ג'נקינס כבר ידע איפה היא בזכות ה-tools
+                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
                 }
             }
         }
@@ -27,10 +32,10 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     script {
                         echo "Logging into Amazon ECR..."
-                        sh "aws ecr get-login-password --region us-east-1 | /usr/bin/docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                        sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
                         echo "Pushing image to ECR..."
-                        sh "/usr/bin/docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                        sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                     }
                 }
             }
