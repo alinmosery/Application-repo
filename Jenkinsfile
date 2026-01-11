@@ -5,27 +5,32 @@ pipeline {
         AWS_CREDENTIALS_ID = 'aws-creds'
         ECR_REGISTRY = '992382545251.dkr.ecr.us-east-1.amazonaws.com'
         ECR_REPOSITORY = 'alin-calculator'
+        IMAGE_TAG = "pr-${env.BUILD_NUMBER}"
     }
 
     stages {
-        stage('Build & Push') {
-            when {
-                changeRequest() 
-            }
+        stage('Build Image') {
             steps {
                 script {
-                    // הגדרת שם האימג' עם מספר ה-Build הנוכחי
-                    def dockerImage = "${ECR_REGISTRY}/${ECR_REPOSITORY}:pr-${env.BUILD_NUMBER}"
-                    
-                    echo "Building image: ${dockerImage}"
-                    
-                    // שימוש בבלוק docker.withRegistry כדי לטפל בלוגין ובבנייה
-                    docker.withRegistry("https://${ECR_REGISTRY}", "ecr:us-east-1:${AWS_CREDENTIALS_ID}") {
-                        // בנייה של האימג'
-                        def myApp = docker.build("${dockerImage}")
+                    echo "Building Docker Image..."
+                    // שימוש ב-usr/bin/docker מבטיח שג'נקינס ימצא את הפקודה
+                    sh "/usr/bin/docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                }
+            }
+        }
+
+        stage('Push to ECR') {
+            when {
+                changeRequest()
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    script {
+                        echo "Logging into Amazon ECR..."
+                        sh "aws ecr get-login-password --region us-east-1 | /usr/bin/docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
-                        // העלאה (Push) ל-ECR
-                        myApp.push()
+                        echo "Pushing image to ECR..."
+                        sh "/usr/bin/docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                     }
                 }
             }
