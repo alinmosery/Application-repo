@@ -11,7 +11,6 @@ pipeline {
             steps {
                 script {
                     echo "Building Image..."
-                    // שלב הבנייה שראינו שעובד אצלך
                     sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
                     
                     withCredentials([usernamePassword(credentialsId: 'aws-creds', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
